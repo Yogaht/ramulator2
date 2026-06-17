@@ -43,9 +43,9 @@ class Simulation:
         }
         self._sim = _CppSimulation(config)
 
-    def run(self):
+    def run(self, drain=True, max_drain_ticks=100000000):
         """Run the simulation to completion."""
-        self._sim.run()
+        self._sim.run(drain, max_drain_ticks)
 
     @property
     def stats(self):

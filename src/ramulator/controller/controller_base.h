@@ -39,6 +39,7 @@ class ControllerBase : public IController, public Implementation {
 
   bool send(Request& req) override;
   bool priority_send(Request& req) override;
+  bool is_idle() const override;
 
   void finalize() override;
   void reset_stats() override;

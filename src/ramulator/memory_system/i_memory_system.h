@@ -48,6 +48,9 @@ class IMemorySystem : public TopLevel<IMemorySystem> {
 
   virtual bool send(Request& req) = 0;
   virtual void tick() = 0;
+  virtual bool is_idle() {
+    return true;
+  }
 
   // Returns the clock ratio for the memory system (forwarded from controllers).
   virtual int get_clock_ratio() = 0;
