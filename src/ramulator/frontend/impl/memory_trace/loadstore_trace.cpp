@@ -24,6 +24,7 @@ class LoadStoreTrace : public IFrontEnd, public Implementation {
   size_t m_curr_trace_idx = 0;
 
   size_t m_trace_count = 0;
+  size_t m_responses_received = 0;
   std::string m_trace_path;
 
  public:
@@ -37,9 +38,16 @@ class LoadStoreTrace : public IFrontEnd, public Implementation {
   };
 
   void tick() override {
+    if (m_trace_count >= m_trace_length) {
+      return;
+    }
+
     const Trace& t = m_trace[m_curr_trace_idx];
     Request req(t.addr, t.is_write ? Request::Type::Write : Request::Type::Read);
     req.size_bytes = m_memory_system->get_tx_bytes();
+    req.callback = [this](Request&) {
+      m_responses_received++;
+    };
     bool request_sent = m_memory_system->send(req);
     if (request_sent) {
       m_curr_trace_idx = (m_curr_trace_idx + 1) % m_trace_length;
@@ -107,7 +115,7 @@ class LoadStoreTrace : public IFrontEnd, public Implementation {
   };
 
   bool is_finished() override {
-    return m_trace_count >= m_trace_length;
+    return m_trace_count >= m_trace_length && m_responses_received >= m_trace_length;
   };
 };
 
