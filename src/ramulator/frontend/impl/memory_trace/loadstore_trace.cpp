@@ -38,18 +38,18 @@ class LoadStoreTrace : public IFrontEnd, public Implementation {
   };
 
   void tick() override {
-    if (m_trace_count >= m_trace_length) {
-      return;
-    }
-
-    const Trace& t = m_trace[m_curr_trace_idx];
-    Request req(t.addr, t.is_write ? Request::Type::Write : Request::Type::Read);
-    req.size_bytes = m_memory_system->get_tx_bytes();
-    req.callback = [this](Request&) {
-      m_responses_received++;
-    };
-    bool request_sent = m_memory_system->send(req);
-    if (request_sent) {
+    // Send as many requests as the memory system can accept per tick,
+    // instead of rate-limiting to 1 request per tick.
+    while (m_trace_count < m_trace_length) {
+      const Trace& t = m_trace[m_curr_trace_idx];
+      Request req(t.addr, t.is_write ? Request::Type::Write : Request::Type::Read);
+      req.size_bytes = m_memory_system->get_tx_bytes();
+      req.callback = [this](Request&) {
+        m_responses_received++;
+      };
+      if (!m_memory_system->send(req)) {
+        break;  // memory system full, retry next tick
+      }
       m_curr_trace_idx = (m_curr_trace_idx + 1) % m_trace_length;
       m_trace_count++;
     }
