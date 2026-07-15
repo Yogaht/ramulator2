@@ -85,6 +85,15 @@ class GenericDRAMSystem final : public IMemorySystem, public Implementation {
     }
   };
 
+  bool is_idle() override {
+    for (auto controller : m_controllers) {
+      if (!controller->is_idle()) {
+        return false;
+      }
+    }
+    return true;
+  }
+
   void reset_stats() override {
     s_num_read_requests = 0;
     s_num_write_requests = 0;

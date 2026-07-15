@@ -1,6 +1,7 @@
 #include <nanobind/nanobind.h>
 #include <nanobind/stl/string.h>
 
+#include <cstdint>
 #include <memory>
 #include <sstream>
 #include <stdexcept>
@@ -30,7 +31,7 @@ class Simulation {
   Simulation(const Simulation&) = delete;
   Simulation& operator=(const Simulation&) = delete;
 
-  void run() {
+  void run(bool drain = true, uint64_t max_drain_ticks = 100000000) {
     int fe_tick = m_frontend->get_clock_ratio();
     int mem_tick = m_memory_system->get_clock_ratio();
     if (fe_tick <= 0 || mem_tick <= 0) {
@@ -38,19 +39,30 @@ class Simulation {
     }
 
     int fe_count = mem_tick - 1, mem_count = fe_tick - 1;
+    bool frontend_finished = false;
+    uint64_t drain_ticks = 0;
     for (;;) {
-      if (++fe_count >= mem_tick) {
+      if (!frontend_finished && ++fe_count >= mem_tick) {
         fe_count = 0;
         m_frontend->tick();
-      }
-
-      if (m_frontend->is_finished()) {
-        break;
+        frontend_finished = m_frontend->is_finished();
       }
 
       if (++mem_count >= fe_tick) {
         mem_count = 0;
         m_memory_system->tick();
+        if (frontend_finished) {
+          drain_ticks++;
+        }
+      }
+
+      if (frontend_finished) {
+        if (!drain || m_memory_system->is_idle()) {
+          break;
+        }
+        if (drain_ticks >= max_drain_ticks) {
+          throw std::runtime_error("Simulation drain exceeded max_drain_ticks");
+        }
       }
     }
   }
@@ -84,7 +96,8 @@ NB_MODULE(_ramulator, m) {
 
   nb::class_<Simulation>(m, "Simulation")
       .def(nb::init<nb::dict>(), nb::arg("config"), "Create a simulation from a configuration dict.")
-      .def("run", &Simulation::run, "Run the simulation to completion.")
+      .def("run", &Simulation::run, nb::arg("drain") = true, nb::arg("max_drain_ticks") = 100000000,
+           "Run the simulation to completion, optionally draining memory after the frontend finishes.")
       .def("get_stats", &Simulation::get_stats, "Finalize the simulation and return stats as a dict.")
       .def("get_stats_yaml", &Simulation::get_stats_yaml, "Finalize the simulation and return stats as a YAML string.");
 }
